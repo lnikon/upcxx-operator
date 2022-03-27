@@ -1,0 +1,94 @@
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: manager-role
+rules:
+- apiGroups:
+  - '*'
+  resources:
+  - configmaps
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - events
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - jobs
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - services
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - statefulsets
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - '*'
+  resources:
+  - upcxxes
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - pgas.github.com
+  resources:
+  - upcxxes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - pgas.github.com
+  resources:
+  - upcxxes/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - pgas.github.com
+  resources:
+  - upcxxes/status
+  verbs:
+  - get
+  - patch
+  - update

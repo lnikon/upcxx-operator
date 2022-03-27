@@ -1,0 +1,24 @@
+# permissions for end users to edit upcxxes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: upcxx-editor-role
+rules:
+- apiGroups:
+  - pgas.github.com
+  resources:
+  - upcxxes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - pgas.github.com
+  resources:
+  - upcxxes/status
+  verbs:
+  - get

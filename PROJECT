@@ -1,0 +1,19 @@
+domain: github.com
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: upcxx-operator
+repo: github.com/lnikon/glfs-pkg/pkg/upcxx-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: github.com
+  group: pgas
+  kind: UPCXX
+  path: github.com/lnikon/glfs-pkg/pkg/upcxx-operator/api/v1alpha1
+  version: v1alpha1
+version: "3"
