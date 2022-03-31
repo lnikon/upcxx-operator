@@ -18,8 +18,6 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	glconstants "github.com/lnikon/glfs-pkg/pkg/constants"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -35,9 +33,6 @@ type UPCXXSpec struct {
 
 	// Count of worker pods
 	WorkerCount int32 `json:"workerCount"`
-
-	// Algorithm used for the execution
-	Algorithm glconstants.Algorithm `json:"algorithm"`
 }
 
 // UPCXXStatus defines the observed state of UPCXX

@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"github.com/lnikon/upcxx-operator/api/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -12,6 +13,7 @@ type UPCXXInterface interface {
 	Get(string, metav1.GetOptions) (*v1alpha1.UPCXX, error)
 	Create(*v1alpha1.UPCXX) (*v1alpha1.UPCXX, error)
 	Delete(string, *metav1.DeleteOptions) (*v1alpha1.UPCXX, error)
+	GetLauncherService(string) (*corev1.Service, error)
 }
 
 type UPCXXClient struct {

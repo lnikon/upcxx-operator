@@ -27,12 +27,12 @@ import (
 	"github.com/go-logr/logr"
 	"golang.org/x/crypto/ssh"
 	apps "k8s.io/api/apps/v1"
-	batch "k8s.io/api/batch/v1"
 	core "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,6 +49,10 @@ const (
 	UPCXXContainerName       = "pgasgraph"
 	UPCXXContainerTagLatest  = ":latest"
 	UPCXXLatestContainerName = UPCXXContainerName + UPCXXContainerTagLatest
+
+	GLCSContainerName       = "glcs"
+	GLCSContainerTagLatest  = ":latest"
+	GLCSLatestContainerName = GLCSContainerName + GLCSContainerTagLatest
 
 	// Launcher specific definitions
 	launcherSuffix = "-launcher"
@@ -105,6 +109,7 @@ type UPCXXReconciler struct {
 //+kubebuilder:rbac:groups=*,resources=events,verbs=get;list;watch;create;update;
 //+kubebuilder:rbac:groups=*,resources=statefulsets,verbs=get;list;watch;create;update;
 //+kubebuilder:rbac:groups=*,resources=jobs,verbs=get;list;watch;create;update;
+//+kubebuilder:rbac:groups=*,resources=deployments,verbs=get;list;watch;create;update;
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -130,7 +135,7 @@ func (r *UPCXXReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 	}
 
 	launcherService := &core.Service{}
-	err := r.Client.Get(ctx, client.ObjectKey{Namespace: upcxx.Namespace, Name: buildLauncherJobName(&upcxx)}, launcherService)
+	err := r.Client.Get(ctx, client.ObjectKey{Namespace: upcxx.Namespace, Name: BuildLauncherJobName(&upcxx)}, launcherService)
 	if apierrors.IsNotFound(err) {
 		logger.Info("Could not find existing Service for launcher Job")
 
@@ -140,7 +145,7 @@ func (r *UPCXXReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, err
 		}
 
-		r.Recorder.Eventf(&upcxx, core.EventTypeNormal, "Created Service for launcher Job", buildLauncherJobName(&upcxx))
+		r.Recorder.Eventf(&upcxx, core.EventTypeNormal, "Created Service for launcher Job", BuildLauncherJobName(&upcxx))
 	}
 
 	workerService := &core.Service{}
@@ -172,8 +177,8 @@ func (r *UPCXXReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		r.Recorder.Eventf(&upcxx, core.EventTypeNormal, "Created StatefulSet", buildWorkerPodName(&upcxx))
 	}
 
-	launcherJob := &batch.Job{}
-	err = r.Client.Get(ctx, client.ObjectKey{Namespace: upcxx.Namespace, Name: buildLauncherJobName(&upcxx)}, launcherJob)
+	launcherJob := &apps.Deployment{}
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: upcxx.Namespace, Name: BuildLauncherJobName(&upcxx)}, launcherJob)
 	if apierrors.IsNotFound(err) {
 		logger.Info("Could not find existing Job for launcher job")
 
@@ -183,53 +188,87 @@ func (r *UPCXXReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 			return ctrl.Result{}, err
 		}
 
-		r.Recorder.Eventf(&upcxx, core.EventTypeNormal, "Created Job for launcher", buildLauncherJobName(&upcxx))
+		r.Recorder.Eventf(&upcxx, core.EventTypeNormal, "Created Job for launcher", BuildLauncherJobName(&upcxx))
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func buildLauncherJobName(upcxx *pgasv1alpha1.UPCXX) string {
+func BuildLauncherJobName(upcxx *pgasv1alpha1.UPCXX) string {
 	return upcxx.Spec.StatefulSetName + launcherSuffix
 }
 
-func buildLauncherJob(upcxx *pgasv1alpha1.UPCXX) *batch.Job {
+func buildLauncherJob(upcxx *pgasv1alpha1.UPCXX) *apps.Deployment {
 	controllerRef := *meta.NewControllerRef(upcxx, pgasv1alpha1.GroupVersion.WithKind("UPCXX"))
-	launcherJobSpec := &batch.Job{
+	launcherJobSpec := &apps.Deployment{
 		ObjectMeta: meta.ObjectMeta{
-			Name:      buildLauncherJobName(upcxx),
+			Name:      BuildLauncherJobName(upcxx),
 			Namespace: upcxx.ObjectMeta.Namespace,
 			Labels: map[string]string{
-				"app": buildLauncherJobName(upcxx),
+				"app": BuildLauncherJobName(upcxx),
+				"hpc": "upcxx",
 			},
 			OwnerReferences: []meta.OwnerReference{controllerRef},
 		},
-		Spec: batch.JobSpec{
-			BackoffLimit: int32ToPtr(1),
+		Spec: apps.DeploymentSpec{
+			Replicas: int32ToPtr(1),
+			Selector: &meta.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": BuildLauncherJobName(upcxx),
+					"hpc": "upcxx",
+				},
+			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: meta.ObjectMeta{
-					Name: buildLauncherJobName(upcxx),
+					Name: BuildLauncherJobName(upcxx),
 					Labels: map[string]string{
-						"app": buildLauncherJobName(upcxx),
+						"app": BuildLauncherJobName(upcxx),
 						"hpc": "upcxx",
 					},
 				},
 				Spec: core.PodSpec{
-					Hostname: buildLauncherJobName(upcxx),
+					Hostname: BuildLauncherJobName(upcxx),
+					Volumes: []core.Volume{
+						{
+							Name: "shared-workspace",
+							VolumeSource: core.VolumeSource{
+								EmptyDir: &core.EmptyDirVolumeSource{},
+							},
+						},
+					},
 					Containers: []core.Container{
 						{
 							Name:            UPCXXContainerName,
 							Image:           UPCXXLatestContainerName,
 							ImagePullPolicy: "Never",
 							Env:             createEnvVars(upcxx),
+							VolumeMounts: []core.VolumeMount{
+								{
+									Name:      "shared-workspace",
+									MountPath: "/shared-workspace",
+								},
+							},
+						},
+						{
+							Name:            GLCSContainerName,
+							Image:           GLCSLatestContainerName,
+							ImagePullPolicy: "Never",
+							Env:             createEnvVars(upcxx),
+							VolumeMounts: []core.VolumeMount{
+								{
+									Name:      "shared-workspace",
+									MountPath: "/shared-workspace",
+								},
+							},
 							Ports: []core.ContainerPort{
 								{
-									ContainerPort: 80,
+									ContainerPort: 8080,
+									HostPort:      8080,
+									Protocol:      core.ProtocolTCP,
 								},
 							},
 						},
 					},
-					RestartPolicy: core.RestartPolicyNever,
 				},
 			},
 		},
@@ -246,7 +285,6 @@ func buildWorkerPodName(upcxx *pgasv1alpha1.UPCXX) string {
 }
 
 func buildWorkerStatefulSet(upcxx *pgasv1alpha1.UPCXX) *apps.StatefulSet {
-	readOnlyRootFilesystem := false
 	controllerRef := *meta.NewControllerRef(upcxx, pgasv1alpha1.GroupVersion.WithKind("UPCXX"))
 	statefulSet := apps.StatefulSet{
 		ObjectMeta: meta.ObjectMeta{
@@ -280,6 +318,12 @@ func buildWorkerStatefulSet(upcxx *pgasv1alpha1.UPCXX) *apps.StatefulSet {
 								EmptyDir: &core.EmptyDirVolumeSource{},
 							},
 						},
+						{
+							Name: "shared-workspace-worker",
+							VolumeSource: core.VolumeSource{
+								EmptyDir: &core.EmptyDirVolumeSource{},
+							},
+						},
 					},
 					Containers: []core.Container{
 						{
@@ -287,21 +331,15 @@ func buildWorkerStatefulSet(upcxx *pgasv1alpha1.UPCXX) *apps.StatefulSet {
 							Image: UPCXXLatestContainerName,
 							// TODO: Pass using UPCXX resource. Set default to IfNotPresent.
 							ImagePullPolicy: "Never",
-							Ports: []core.ContainerPort{
-								{
-									ContainerPort: 80,
-								},
-							},
 							VolumeMounts: []core.VolumeMount{
 								{
 									Name:      upcxx.Spec.StatefulSetName + "-vm",
 									MountPath: "/vmount",
 								},
-							},
-							SecurityContext: &core.SecurityContext{
-								RunAsUser:              int64ToPtr(1000),
-								RunAsGroup:             int64ToPtr(1000),
-								ReadOnlyRootFilesystem: &readOnlyRootFilesystem,
+								{
+									Name:      "shared-workspace-worker",
+									MountPath: "/shared-workspace",
+								},
 							},
 						},
 					},
@@ -337,7 +375,7 @@ func buildWorkerStatefulSet(upcxx *pgasv1alpha1.UPCXX) *apps.StatefulSet {
 
 func createSSHServersEnv(upcxx *pgasv1alpha1.UPCXX) (core.EnvVar, []string) {
 	var sshServersList []string
-	sshServersList = append(sshServersList, buildLauncherJobName(upcxx))
+	sshServersList = append(sshServersList, BuildLauncherJobName(upcxx))
 	workerName := buildWorkerPodName(upcxx)
 	for idx := int32(0); idx < upcxx.Spec.WorkerCount-1; idx++ {
 		sshServersList = append(sshServersList, fmt.Sprintf("%s-%d.%s.%s", workerName, idx, workerName, "default.svc.cluster.local"))
@@ -366,6 +404,26 @@ func createEnvVars(upcxx *pgasv1alpha1.UPCXX) []core.EnvVar {
 			Name:  "GASNET_SPAWNFN",
 			Value: "S",
 		},
+		{
+			Name:  "DB_HOST",
+			Value: "postgres",
+		},
+		{
+			Name:  "DB_PORT",
+			Value: "5432",
+		},
+		{
+			Name:  "DB_USER",
+			Value: "postgres",
+		},
+		{
+			Name:  "DB_PASSWORD",
+			Value: "postgres",
+		},
+		{
+			Name:  "DB_NAME",
+			Value: "postgres",
+		},
 	}
 }
 
@@ -375,7 +433,7 @@ func getWorkerCount(upcxx *pgasv1alpha1.UPCXX) *int32 {
 }
 
 func buildLauncherService(upcxx *pgasv1alpha1.UPCXX) *core.Service {
-	return newService(upcxx, buildLauncherJobName(upcxx))
+	return newService(upcxx, BuildLauncherJobName(upcxx))
 }
 
 func buildWorkerService(upcxx *pgasv1alpha1.UPCXX) *core.Service {
@@ -395,12 +453,14 @@ func newService(upcxx *pgasv1alpha1.UPCXX, name string) *core.Service {
 			},
 		},
 		Spec: core.ServiceSpec{
+			Type: core.ServiceTypeLoadBalancer,
 			Ports: []core.ServicePort{
 				{
-					Port: 80,
+					Port:       8080,
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+					Protocol:   core.ProtocolTCP,
 				},
 			},
-			ClusterIP: core.ClusterIPNone,
 			Selector: map[string]string{
 				"app": name,
 			},

@@ -4,7 +4,6 @@ go 1.17
 
 require (
 	github.com/go-logr/logr v1.2.3
-	github.com/lnikon/glfs-pkg/pkg/constants v0.0.0-20220308191534-cab32e2ed4f3
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.19.0
 	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064
@@ -14,6 +13,8 @@ require (
 	k8s.io/code-generator v0.23.5
 	sigs.k8s.io/controller-runtime v0.11.1
 )
+
+replace github.com/lnikon/upcxx-operator/controllers => ./controllers
 
 require (
 	cloud.google.com/go v0.81.0 // indirect

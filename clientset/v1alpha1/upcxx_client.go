@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/lnikon/upcxx-operator/api/v1alpha1"
+	ctrl "github.com/lnikon/upcxx-operator/controllers"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -56,6 +58,21 @@ func (c *UPCXXClient) Delete(name string, options *metav1.DeleteOptions) (*v1alp
 		Resource("upcxxes").
 		Name(name).
 		Body(options).
+		Do(context.TODO()).
+		Into(&result)
+
+	return &result, err
+}
+
+func (c *UPCXXClient) GetLauncherService(name string) (*corev1.Service, error) {
+	upcxx := v1alpha1.UPCXX{}
+	upcxx.Spec.StatefulSetName = name
+
+	result := corev1.Service{}
+	err := c.restClient.
+		Get().
+		Namespace("default").
+		Name(ctrl.BuildLauncherJobName(&upcxx)).
 		Do(context.TODO()).
 		Into(&result)
 
