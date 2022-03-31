@@ -3,11 +3,15 @@ package v1alpha1
 import (
 	"context"
 	"log"
+	"path/filepath"
 
 	"github.com/lnikon/upcxx-operator/api/v1alpha1"
 	ctrl "github.com/lnikon/upcxx-operator/controllers"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/util/homedir"
 )
 
 func (c *UPCXXClient) List(opts metav1.ListOptions) (*v1alpha1.UPCXXList, error) {
@@ -70,20 +74,29 @@ func (c *UPCXXClient) Delete(name string, options *metav1.DeleteOptions) (*v1alp
 }
 
 func (c *UPCXXClient) GetLauncherService(name string) (*corev1.Service, error) {
+	// config, err := rest.InClusterConfig()
+	// if err != nil {
+	// 	log.Println("GetLauncherService: Unable to create in cluster config")
+	// 	return nil, err
+	// }
+
+	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Println("GetLauncherService: Unable to create clientset")
+		return nil, err
+	}
+
 	upcxx := v1alpha1.UPCXX{}
 	upcxx.Spec.StatefulSetName = name
 
-	result := corev1.Service{}
-	err := c.restClient.
-		Get().
-		Namespace("default").
-		Name(ctrl.BuildLauncherJobName(&upcxx)).
-		Do(context.TODO()).
-		Into(&result)
-
+	svc, err := clientset.CoreV1().Services("default").Get(context.TODO(), ctrl.BuildLauncherJobName(&upcxx), metav1.GetOptions{})
 	if err != nil {
-		log.Printf("GetLauncherService Error: %s", err)
+		log.Printf("GetLauncherService: Unable to get service %s\n", ctrl.BuildLauncherJobName(&upcxx))
+		return nil, err
 	}
 
-	return &result, err
+	return svc, err
 }
