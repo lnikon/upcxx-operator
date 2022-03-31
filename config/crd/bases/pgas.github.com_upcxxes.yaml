@@ -36,9 +36,6 @@ spec:
           spec:
             description: UPCXXSpec defines the desired state of UPCXX
             properties:
-              algorithm:
-                description: Algorithm used for the execution
-                type: string
               statefulSetName:
                 description: Name of the current UPCXX job deployment
                 type: string
@@ -47,7 +44,6 @@ spec:
                 format: int32
                 type: integer
             required:
-            - algorithm
             - statefulSetName
             - workerCount
             type: object

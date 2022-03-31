@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"context"
+	"log"
 
 	"github.com/lnikon/upcxx-operator/api/v1alpha1"
 	ctrl "github.com/lnikon/upcxx-operator/controllers"
@@ -32,6 +33,10 @@ func (c *UPCXXClient) Get(name string, opts metav1.GetOptions) (*v1alpha1.UPCXX,
 		VersionedParams(&opts, metav1.ParameterCodec).
 		Do(context.TODO()).
 		Into(&result)
+
+	if err != nil {
+		log.Printf("Get Error: %s", err)
+	}
 
 	return &result, err
 }
@@ -75,6 +80,10 @@ func (c *UPCXXClient) GetLauncherService(name string) (*corev1.Service, error) {
 		Name(ctrl.BuildLauncherJobName(&upcxx)).
 		Do(context.TODO()).
 		Into(&result)
+
+	if err != nil {
+		log.Printf("GetLauncherService Error: %s", err)
+	}
 
 	return &result, err
 }
