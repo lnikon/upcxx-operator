@@ -10,6 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 )
@@ -60,17 +61,15 @@ func (c *UPCXXClient) Create(upcxx *v1alpha1.UPCXX) (*v1alpha1.UPCXX, error) {
 }
 
 func (c *UPCXXClient) Delete(name string, options *metav1.DeleteOptions) (*v1alpha1.UPCXX, error) {
-	result := v1alpha1.UPCXX{}
-	err := c.restClient.
+	res := c.restClient.
 		Delete().
 		Namespace("default").
 		Resource("upcxxes").
 		Name(name).
 		Body(options).
-		Do(context.TODO()).
-		Into(&result)
+		Do(context.TODO())
 
-	return &result, err
+	return nil, res.Error()
 }
 
 func (c *UPCXXClient) GetLauncherService(name string) (*corev1.Service, error) {
@@ -82,6 +81,13 @@ func (c *UPCXXClient) GetLauncherService(name string) (*corev1.Service, error) {
 
 	kubeconfig := filepath.Join(homedir.HomeDir(), ".kube", "config")
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		log.Printf("GetLauncherService: Can't create config from ~/.kube/config. Now will try to create in-cluster config.")
+		config, err = rest.InClusterConfig()
+		if err != nil {
+			log.Printf("GetLauncherService: Can't create in-cluster config.")
+		}
+	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {

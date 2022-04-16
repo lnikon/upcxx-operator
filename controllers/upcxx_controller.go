@@ -148,20 +148,6 @@ func (r *UPCXXReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl
 		r.Recorder.Eventf(&upcxx, core.EventTypeNormal, "Created Service for launcher Job", BuildLauncherJobName(&upcxx))
 	}
 
-	workerService := &core.Service{}
-	err = r.Client.Get(ctx, client.ObjectKey{Namespace: upcxx.Namespace, Name: buildWorkerPodName(&upcxx)}, workerService)
-	if apierrors.IsNotFound(err) {
-		logger.Info("Could not find existing Service for launcher Job")
-
-		workerService = buildWorkerService(&upcxx)
-		if err := r.Client.Create(ctx, workerService); err != nil {
-			logger.Error(err, "Unable to create Service for Launcher Job")
-			return ctrl.Result{}, err
-		}
-
-		r.Recorder.Eventf(&upcxx, core.EventTypeNormal, "Created Service for worker StatefulSet", buildWorkerPodName(&upcxx))
-	}
-
 	logger = logger.WithValues("StatefulSetName", upcxx.Spec.StatefulSetName)
 	statefulSet := &apps.StatefulSet{}
 	err = r.Client.Get(ctx, client.ObjectKey{Namespace: upcxx.Namespace, Name: buildWorkerPodName(&upcxx)}, statefulSet)
@@ -262,8 +248,8 @@ func buildLauncherJob(upcxx *pgasv1alpha1.UPCXX) *apps.Deployment {
 							},
 							Ports: []core.ContainerPort{
 								{
-									ContainerPort: 8080,
-									HostPort:      8080,
+									ContainerPort: 30001,
+									HostPort:      30001,
 									Protocol:      core.ProtocolTCP,
 								},
 							},
@@ -436,10 +422,6 @@ func buildLauncherService(upcxx *pgasv1alpha1.UPCXX) *core.Service {
 	return newService(upcxx, BuildLauncherJobName(upcxx))
 }
 
-func buildWorkerService(upcxx *pgasv1alpha1.UPCXX) *core.Service {
-	return newService(upcxx, buildWorkerPodName(upcxx))
-}
-
 func newService(upcxx *pgasv1alpha1.UPCXX, name string) *core.Service {
 	return &core.Service{
 		ObjectMeta: meta.ObjectMeta{
@@ -456,8 +438,8 @@ func newService(upcxx *pgasv1alpha1.UPCXX, name string) *core.Service {
 			Type: core.ServiceTypeLoadBalancer,
 			Ports: []core.ServicePort{
 				{
-					Port:       8080,
-					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+					Port:       30001,
+					TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: 30001},
 					Protocol:   core.ProtocolTCP,
 				},
 			},
